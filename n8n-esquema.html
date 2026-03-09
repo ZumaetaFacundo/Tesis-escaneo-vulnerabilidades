@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>n8n — Plataforma de Escaneo de Vulnerabilidades</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0d14;
+    --panel: #0f1420;
+    --border: #1e2840;
+    --accent: #00e5ff;
+    --accent2: #ff4d6d;
+    --accent3: #7c3aed;
+    --accent4: #10b981;
+    --accent5: #f59e0b;
+    --accent6: #ec4899;
+    --accent7: #3b82f6;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --node-w: 160px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 32px 48px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    background: linear-gradient(180deg, rgba(0,229,255,0.05) 0%, transparent 100%);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 40px; height: 40px;
+    border: 2px solid var(--accent);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 14px;
+    color: var(--accent);
+    box-shadow: 0 0 16px rgba(0,229,255,0.3);
+  }
+
+  h1 {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+
+  .subtitle {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .badge {
+    margin-left: auto;
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.3);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 4px 12px;
+    border-radius: 4px;
+  }
+
+  /* Tabs */
+  .tabs {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    gap: 4px;
+    padding: 16px 48px 0;
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+
+  .tab {
+    padding: 10px 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    border: 1px solid transparent;
+    border-bottom: none;
+    transition: all 0.2s;
+    white-space: nowrap;
+    letter-spacing: 0.3px;
+    color: var(--muted);
+  }
+
+  .tab:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+
+  .tab.active {
+    color: var(--text);
+    background: var(--panel);
+    border-color: var(--border);
+    border-bottom-color: var(--panel);
+    position: relative;
+    z-index: 1;
+  }
+
+  .tab .dot {
+    display: inline-block;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    margin-right: 7px;
+    vertical-align: middle;
+  }
+
+  /* Main canvas */
+  .canvas {
+    position: relative;
+    z-index: 5;
+    padding: 40px 48px;
+    display: none;
+  }
+  .canvas.active { display: block; }
+
+  /* Flow label */
+  .flow-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .flow-title {
+    font-size: 24px;
+    font-weight: 800;
+    margin-bottom: 6px;
+  }
+
+  .flow-desc {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 36px;
+    max-width: 600px;
+    line-height: 1.6;
+  }
+
+  /* Node flow container */
+  .flow {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 20px;
+  }
+
+  .flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+  }
+
+  /* Arrow connector */
+  .arrow {
+    display: flex;
+    align-items: center;
+    margin-top: 32px;
+    flex-shrink: 0;
+  }
+
+  .arrow-line {
+    width: 36px;
+    height: 2px;
+    background: linear-gradient(90deg, var(--border), var(--muted));
+    position: relative;
+  }
+
+  .arrow-line::after {
+    content: '▶';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 9px;
+    color: var(--muted);
+  }
+
+  /* Node card */
+  .node {
+    width: 150px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .node:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+
+  .node.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 20px rgba(0,229,255,0.2);
+  }
+
+  .node-header {
+    padding: 10px 12px 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .node-icon {
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px;
+    flex-shrink: 0;
+  }
+
+  .node-type {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .node-name {
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin-top: 2px;
+  }
+
+  .node-footer {
+    padding: 6px 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .node-status {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent4);
+    flex-shrink: 0;
+  }
+
+  .node-output {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Branch arrows */
+  .branch-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .branch {
+    display: flex;
+    align-items: center;
+  }
+
+  .branch-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    margin: 0 6px;
+    white-space: nowrap;
+  }
+
+  /* Detail panel */
+  .detail-panel {
+    margin-top: 40px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    display: none;
+    animation: fadeIn 0.2s ease;
+  }
+
+  .detail-panel.visible { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .detail-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 20px;
+  }
+
+  .detail-icon {
+    width: 44px; height: 44px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+
+  .detail-title { font-size: 18px; font-weight: 800; }
+  .detail-type {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    letter-spacing: 1px;
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+
+  .detail-card {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+  }
+
+  .detail-card-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+  }
+
+  .detail-card-value {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    margin: 2px 2px 2px 0;
+  }
+
+  /* Overview */
+  .overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+  }
+
+  .overview-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .overview-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .overview-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+
+  .ov-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .ov-title { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
+  .ov-desc { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+
+  .ov-nodes {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .ov-node-chip {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 3px 8px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+  }
+
+  /* Metrics tab */
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+
+  .metric-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .metric-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-bottom: 10px;
+    letter-spacing: 0.5px;
+  }
+
+  .metric-before {
+    font-size: 13px;
+    color: var(--accent2);
+    margin-bottom: 4px;
+  }
+
+  .metric-after {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--accent4);
+  }
+
+  .metric-unit {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .close-btn {
+    float: right;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    width: 28px; height: 28px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+  }
+  .close-btn:hover { color: var(--text); border-color: var(--muted); }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { height: 4px; width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">n8n</div>
+    <div>
+      <h1>Plataforma de Escaneo de Vulnerabilidades</h1>
+      <div class="subtitle">UTN FRM — Zumaeta · Vega · Molaro</div>
+    </div>
+  </div>
+  <div class="badge">7 FLUJOS · SOAR PATTERN</div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('overview')"><span class="dot" style="background:#00e5ff"></span>Vista General</div>
+  <div class="tab" onclick="switchTab('f1')"><span class="dot" style="background:#00e5ff"></span>F1 Descubrimiento</div>
+  <div class="tab" onclick="switchTab('f2')"><span class="dot" style="background:#7c3aed"></span>F2 Escaneo no-auth</div>
+  <div class="tab" onclick="switchTab('f3')"><span class="dot" style="background:#ff4d6d"></span>F3 Escaneo auth</div>
+  <div class="tab" onclick="switchTab('f4')"><span class="dot" style="background:#f59e0b"></span>F4 Enriquecimiento</div>
+  <div class="tab" onclick="switchTab('f5')"><span class="dot" style="background:#ec4899"></span>F5 Notificación</div>
+  <div class="tab" onclick="switchTab('f6')"><span class="dot" style="background:#10b981"></span>F6 Auditoría</div>
+  <div class="tab" onclick="switchTab('f7')"><span class="dot" style="background:#3b82f6"></span>F7 Feedback</div>
+  <div class="tab" onclick="switchTab('metrics')"><span class="dot" style="background:#f59e0b"></span>Métricas</div>
+</div>
+
+<!-- ===== OVERVIEW ===== -->
+<div class="canvas active" id="tab-overview">
+  <div class="flow-label">Arquitectura</div>
+  <div class="flow-title">Pipeline Completo de Vulnerabilidades</div>
+  <div class="flow-desc">7 flujos orquestados en n8n que cubren desde el descubrimiento de activos hasta el feedback para mejora continua. Hacé clic en cualquier flujo para ver su detalle.</div>
+
+  <div class="overview-grid">
+
+    <div class="overview-card" onclick="switchTab('f1')" style="border-color: rgba(0,229,255,0.2)">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#00e5ff"></div>
+      <div class="ov-num">FLUJO 01</div>
+      <div class="ov-title">Descubrimiento de Activos</div>
+      <div class="ov-desc">Detecta hosts y servicios activos mediante Nmap y los registra en MySQL.</div>
+      <div class="ov-nodes">
+        <span class="ov-node-chip">Cron Trigger</span>
+        <span class="ov-node-chip">Execute Cmd</span>
+        <span class="ov-node-chip">Function</span>
+        <span class="ov-node-chip">MySQL</span>
+      </div>
+    </div>
+
+    <div class="overview-card" onclick="switchTab('f2')" style="border-color: rgba(124,58,237,0.2)">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#7c3aed"></div>
+      <div class="ov-num">FLUJO 02</div>
+      <div class="ov-title">Escaneo No Autenticado</div>
+      <div class="ov-desc">Escanea activos sin credenciales con Nmap -sV/-sC. PB-1.</div>
+      <div class="ov-nodes">
+        <span class="ov-node-chip">MySQL SELECT</span>
+        <span class="ov-node-chip">Split Batches</span>
+        <span class="ov-node-chip">Nmap</span>
+        <span class="ov-node-chip">MySQL INSERT</span>
+      </div>
+    </div>
+
+    <div class="overview-card" onclick="switchTab('f3')" style="border-color: rgba(255,77,109,0.2)">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#ff4d6d"></div>
+      <div class="ov-num">FLUJO 03</div>
+      <div class="ov-title">Escaneo Autenticado</div>
+      <div class="ov-desc">Activos críticos con credenciales seguras desde Vault. PB-2.</div>
+      <div class="ov-nodes">
+        <span class="ov-node-chip">MySQL críticos</span>
+        <span class="ov-node-chip">Vault</span>
+        <span class="ov-node-chip">OpenVAS</span>
+        <span class="ov-node-chip">MySQL</span>
+      </div>
+    </div>
+
+    <div class="overview-card" onclick="switchTab('f4')" style="border-color: rgba(245,158,11,0.2)">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#f59e0b"></div>
+      <div class="ov-num">FLUJO 04</div>
+      <div class="ov-title">Enriquecimiento & Priorización</div>
+      <div class="ov-desc">Consulta CVE/NVD/EPSS y calcula risk score dinámico (CVSS 3.1).</div>
+      <div class="ov-nodes">
+        <span class="ov-node-chip">HTTP NVD</span>
+        <span class="ov-node-chip">HTTP EPSS</span>
+        <span class="ov-node-chip">Function Score</span>
+        <span class="ov-node-chip">MySQL UPDATE</span>
+      </div>
+    </div>
+
+    <div class="overview-card" onclick="switchTab('f5')" style="border-color: rgba(236,72,153,0.2)">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#ec4899"></div>
+      <div class="ov-num">FLUJO 05</div>
+      <div class="ov-title">Notificación & Ticketing</div>
+      <div class="ov-desc">Genera tickets en Jira o alertas en Slack cuando se superan umbrales.</div>
+      <div class="ov-nodes">
+        <span class="ov-node-chip">If Umbral</span>
+        <span class="ov-node-chip">Jira</span>
+        <span class="ov-node-chip">Slack</span>
+        <span class="ov-node-chip">Email</span>
+      </div>
+    </div>
+
+    <div class="overview-card" onclick="switchTab('f6')" style="border-color: rgba(16,185,129,0.2)">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#10b981"></div>
+      <div class="ov-num">FLUJO 06</div>
+      <div class="ov-title">Auditoría & Métricas</div>
+      <div class="ov-desc">Calcula cobertura, TTR y falsos positivos. Exporta reportes.</div>
+      <div class="ov-nodes">
+        <span class="ov-node-chip">MySQL Agregado</span>
+        <span class="ov-node-chip">Function</span>
+        <span class="ov-node-chip">CSV/Notion</span>
+        <span class="ov-node-chip">Email</span>
+      </div>
+    </div>
+
+    <div class="overview-card" onclick="switchTab('f7')" style="border-color: rgba(59,130,246,0.2)">
+      <div style="position:absolute;top:0;left:0;right:0;height:3px;background:#3b82f6"></div>
+      <div class="ov-num">FLUJO 07</div>
+      <div class="ov-title">Feedback & Mejora Continua</div>
+      <div class="ov-desc">Re-entrena reglas de priorización con feedback del analista.</div>
+      <div class="ov-nodes">
+        <span class="ov-node-chip">MySQL feedback</span>
+        <span class="ov-node-chip">Function pesos</span>
+        <span class="ov-node-chip">MySQL reglas</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== FLUJO 1 ===== -->
+<div class="canvas" id="tab-f1">
+  <div class="flow-label">Flujo 01 · PB-1 (parcial)</div>
+  <div class="flow-title" style="color:#00e5ff">Descubrimiento de Activos</div>
+  <div class="flow-desc">Ejecuta Nmap periódicamente, parsea los resultados XML (<code>scan.xml</code>) y registra los hosts/servicios detectados en la base MySQL como activos.</div>
+  <div id="flow1-detail" class="detail-panel"></div>
+  <div class="flow" id="flow1"></div>
+</div>
+
+<!-- ===== FLUJO 2 ===== -->
+<div class="canvas" id="tab-f2">
+  <div class="flow-label">Flujo 02 · PB-1</div>
+  <div class="flow-title" style="color:#7c3aed">Escaneo No Autenticado</div>
+  <div class="flow-desc">Toma activos ya registrados, los escanea en lotes con Nmap (-sV, -sC), normaliza los hallazgos y los persiste como vulnerabilidades.</div>
+  <div id="flow2-detail" class="detail-panel"></div>
+  <div class="flow" id="flow2"></div>
+</div>
+
+<!-- ===== FLUJO 3 ===== -->
+<div class="canvas" id="tab-f3">
+  <div class="flow-label">Flujo 03 · PB-2</div>
+  <div class="flow-title" style="color:#ff4d6d">Escaneo Autenticado (Activos Críticos)</div>
+  <div class="flow-desc">Filtra activos con criticidad HIGH, obtiene credenciales desde Vault y ejecuta escaneo profundo (OpenVAS/Nessus).</div>
+  <div id="flow3-detail" class="detail-panel"></div>
+  <div class="flow" id="flow3"></div>
+</div>
+
+<!-- ===== FLUJO 4 ===== -->
+<div class="canvas" id="tab-f4">
+  <div class="flow-label">Flujo 04</div>
+  <div class="flow-title" style="color:#f59e0b">Enriquecimiento & Priorización</div>
+  <div class="flow-desc">Consulta NVD y EPSS para cada hallazgo, calcula un risk score combinando CVSS + EPSS + criticidad del activo y actualiza la DB.</div>
+  <div id="flow4-detail" class="detail-panel"></div>
+  <div class="flow" id="flow4"></div>
+</div>
+
+<!-- ===== FLUJO 5 ===== -->
+<div class="canvas" id="tab-f5">
+  <div class="flow-label">Flujo 05</div>
+  <div class="flow-title" style="color:#ec4899">Notificación & Ticketing</div>
+  <div class="flow-desc">Evalúa hallazgos contra umbrales configurables. Si los supera, crea ticket en Jira y/o envía alerta por Slack / Email.</div>
+  <div id="flow5-detail" class="detail-panel"></div>
+  <div class="flow" id="flow5"></div>
+</div>
+
+<!-- ===== FLUJO 6 ===== -->
+<div class="canvas" id="tab-f6">
+  <div class="flow-label">Flujo 06</div>
+  <div class="flow-title" style="color:#10b981">Auditoría & Métricas</div>
+  <div class="flow-desc">Queries agregadas sobre la DB calculan cobertura, TTR y tasa de falsos positivos. Exporta reportes a CSV/Notion/Email.</div>
+  <div id="flow6-detail" class="detail-panel"></div>
+  <div class="flow" id="flow6"></div>
+</div>
+
+<!-- ===== FLUJO 7 ===== -->
+<div class="canvas" id="tab-f7">
+  <div class="flow-label">Flujo 07</div>
+  <div class="flow-title" style="color:#3b82f6">Feedback & Mejora Continua</div>
+  <div class="flow-desc">El analista ingresa feedback sobre falsos positivos. La función recalcula pesos de las reglas de scoring y actualiza la DB.</div>
+  <div id="flow7-detail" class="detail-panel"></div>
+  <div class="flow" id="flow7"></div>
+</div>
+
+<!-- ===== METRICS ===== -->
+<div class="canvas" id="tab-metrics">
+  <div class="flow-label">Resultados Esperados</div>
+  <div class="flow-title">Métricas del Sistema</div>
+  <div class="flow-desc">Comparación entre proceso manual y el pipeline automatizado según el documento de requisitos.</div>
+
+  <div class="metrics-grid">
+    <div class="metric-card">
+      <div class="metric-label">Cobertura de Activos</div>
+      <div class="metric-before">Manual: 70%</div>
+      <div class="metric-after">95%</div>
+      <div class="metric-unit">AUTOMATIZADO</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Tiempo de Remediación (TTR)</div>
+      <div class="metric-before">Manual: 7 días</div>
+      <div class="metric-after">72 hs</div>
+      <div class="metric-unit">PROMEDIO</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">Tasa de Falsos Positivos</div>
+      <div class="metric-before">Manual: 28%</div>
+      <div class="metric-after">12%</div>
+      <div class="metric-unit">AUTOMATIZADO</div>
+    </div>
+  </div>
+
+  <div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:24px;">
+    <div class="flow-label" style="margin-bottom:16px">Playbooks cubiertos por los flujos</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;">
+      <div style="border:1px solid rgba(0,229,255,0.2);border-radius:8px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#00e5ff;margin-bottom:6px;">PB-1</div>
+        <div style="font-size:13px;font-weight:700;">Escaneo de Red Interno</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Descubrimiento Nmap → escaneo no autenticado → Flujos 1 & 2</div>
+      </div>
+      <div style="border:1px solid rgba(255,77,109,0.2);border-radius:8px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#ff4d6d;margin-bottom:6px;">PB-2</div>
+        <div style="font-size:13px;font-weight:700;">Escaneo Autenticado Críticos</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Vault + credenciales + validación automática → Flujo 3</div>
+      </div>
+      <div style="border:1px solid rgba(245,158,11,0.2);border-radius:8px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#f59e0b;margin-bottom:6px;">PB-3</div>
+        <div style="font-size:13px;font-weight:700;">Escaneo Web CI/CD</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">OWASP ZAP + gate de calidad → extendible desde Flujo 2</div>
+      </div>
+      <div style="border:1px solid rgba(124,58,237,0.2);border-radius:8px;padding:14px;">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:#7c3aed;margin-bottom:6px;">PB-4</div>
+        <div style="font-size:13px;font-weight:700;">Validación de Explotación</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:4px;">Indicios reales de ataque → integrable en Flujo 4 + 5</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Data ───────────────────────────────────────────────────────────────────
+
+const flows = {
+  f1: {
+    color: '#00e5ff',
+    nodes: [
+      { id:'cron1', icon:'⏰', type:'Trigger', name:'Cron\nTrigger', output:'cada 24h', detail:{
+        desc:'Dispara el flujo automáticamente cada 24 horas (configurable a menor frecuencia en entornos dinámicos).',
+        params:{'Intervalo':'Cada 24 horas','Zona horaria':'America/Argentina/Mendoza'},
+        outputs:['timestamp'],
+        notes:'Puede reemplazarse por un Webhook para trigger manual.'
+      }},
+      { id:'cmd1', icon:'💻', type:'Execute Command', name:'Nmap\nDiscovery', output:'stdout XML', detail:{
+        desc:'Ejecuta Nmap en modo discovery (-sn o -sV) sobre el rango de red configurado. Genera scan.xml.',
+        params:{'Comando':'nmap -sV -oX /tmp/scan.xml {{$node.config.range}}','Timeout':'30s'},
+        outputs:['stdout','stderr','exitCode'],
+        notes:'El rango de red se define en una variable de entorno n8n.'
+      }},
+      { id:'fn1', icon:'⚙️', type:'Function', name:'Parsear\nXML', output:'array hosts', detail:{
+        desc:'Parsea el XML de salida de Nmap. Extrae dirección IP, puertos abiertos, servicios y versiones.',
+        params:{'Input':'stdout del nodo anterior','Parser':'xml2js'},
+        outputs:['hosts[]','ports[]','services[]'],
+        notes:'Implementado como Code Node en n8n. Filtra hosts con estado "up".'
+      }},
+      { id:'mysql1a', icon:'🗄️', type:'MySQL', name:'INSERT /\nUPDATE Assets', output:'asset_id', detail:{
+        desc:'Inserta nuevos activos o actualiza los existentes en la tabla assets con INSERT ... ON DUPLICATE KEY UPDATE.',
+        params:{'Tabla':'assets','Campos':'name, type, address, criticality','Acción':'Upsert'},
+        outputs:['insertId','affectedRows'],
+        notes:'Usa la misma base proyecto_java definida en DatabaseConnection.java.'
+      }},
+    ]
+  },
+  f2: {
+    color: '#7c3aed',
+    nodes: [
+      { id:'mysql2a', icon:'🗄️', type:'MySQL', name:'SELECT\nActivos', output:'assets[]', detail:{
+        desc:'Selecciona todos los activos registrados que no tengan un escaneo reciente (últimas 24h).',
+        params:{'Query':'SELECT * FROM assets WHERE last_scan < NOW() - INTERVAL 1 DAY','DB':'proyecto_java'},
+        outputs:['assets[]'],
+        notes:''
+      }},
+      { id:'split2', icon:'🔀', type:'Split in Batches', name:'Lotes\nde 10', output:'batch', detail:{
+        desc:'Divide el array de activos en lotes de 10 para evitar saturar el host con múltiples escaneos simultáneos.',
+        params:{'Tamaño de lote':'10'},
+        outputs:['batch[]'],
+        notes:'Valor configurable según capacidad del host.'
+      }},
+      { id:'cmd2', icon:'💻', type:'Execute Command', name:'Nmap\n-sV -sC', output:'XML result', detail:{
+        desc:'Escaneo de servicios (-sV) y scripts básicos (-sC) sin credenciales. PB-1.',
+        params:{'Comando':'nmap -sV -sC -oX /tmp/scan_{{id}}.xml {{address}}','Opciones':'--version-intensity 5'},
+        outputs:['stdout','exitCode'],
+        notes:'Genera un archivo XML individual por activo para facilitar el parseo.'
+      }},
+      { id:'fn2', icon:'⚙️', type:'Function', name:'Normalizar\nHallazgos', output:'vulns[]', detail:{
+        desc:'Extrae puertos, servicios y posibles vulnerabilidades del XML. Normaliza al esquema de la tabla vulnerabilities.',
+        params:{'Campos':'name, severity, cvss_score, description','Severidad':'Inferida del servicio/versión'},
+        outputs:['vulns[]'],
+        notes:'Se puede extender con firmas locales de Nmap NSE.'
+      }},
+      { id:'mysql2b', icon:'🗄️', type:'MySQL', name:'INSERT\nHallazgos', output:'vuln_ids', detail:{
+        desc:'Inserta los hallazgos normalizados en las tablas scans y vulnerabilities. Registra scan_type=NMAP.',
+        params:{'Tablas':'scans + vulnerabilities','scan_type':'NMAP','status':'FINISHED'},
+        outputs:['insertIds[]'],
+        notes:''
+      }},
+    ]
+  },
+  f3: {
+    color: '#ff4d6d',
+    nodes: [
+      { id:'mysql3a', icon:'🗄️', type:'MySQL', name:'SELECT\nCríticos', output:'críticos[]', detail:{
+        desc:'Filtra activos con criticality = HIGH para priorizarlos en el escaneo autenticado.',
+        params:{'Query':"SELECT * FROM assets WHERE criticality = 'HIGH'"},
+        outputs:['assets_criticos[]'],
+        notes:''
+      }},
+      { id:'vault3', icon:'🔐', type:'HTTP Request', name:'Vault /\nSecrets', output:'credentials', detail:{
+        desc:'Obtiene credenciales seguras desde HashiCorp Vault (o variable de entorno n8n) para el activo en cuestión.',
+        params:{'URL':'http://vault:8200/v1/secret/{{asset_id}}','Auth':'Token Vault'},
+        outputs:['username','password','key'],
+        notes:'Nunca se almacenan credenciales en la DB ni en el flujo.'
+      }},
+      { id:'cmd3', icon:'💻', type:'Execute Command', name:'OpenVAS /\nNessus', output:'report XML', detail:{
+        desc:'Ejecuta escaneo autenticado con OpenVAS CLI o Nessus REST API usando las credenciales obtenidas del Vault. PB-2.',
+        params:{'Herramienta':'OpenVAS (omp) o Nessus API','Tipo':'Full credentialed scan'},
+        outputs:['reportXML','scanId'],
+        notes:'Requiere OpenVAS/Nessus instalado o accesible en red.'
+      }},
+      { id:'fn3', icon:'⚙️', type:'Function', name:'Parsear +\nTrazabilidad', output:'hallazgos[]', detail:{
+        desc:'Parsea el reporte y añade campos de trazabilidad: usuario, fecha, tipo de escaneo, hash del reporte.',
+        params:{'Campos extra':'scanned_by, scan_timestamp, report_hash'},
+        outputs:['vulns_enriquecidas[]'],
+        notes:''
+      }},
+      { id:'mysql3b', icon:'🗄️', type:'MySQL', name:'INSERT\nTrazabilidad', output:'stored', detail:{
+        desc:'Inserta hallazgos con metadatos extendidos. Marca scan_type=OPENVAS y el asset como last_authenticated_scan.',
+        params:{'scan_type':'OPENVAS','status':'FINISHED'},
+        outputs:['ok'],
+        notes:''
+      }},
+    ]
+  },
+  f4: {
+    color: '#f59e0b',
+    nodes: [
+      { id:'mysql4a', icon:'🗄️', type:'MySQL', name:'SELECT\nHallazgos', output:'vulns sin score', detail:{
+        desc:'Selecciona vulnerabilidades que aún no tienen cvss_score o cuyo enrichment_date es nulo.',
+        params:{'Query':'SELECT * FROM vulnerabilities WHERE cvss_score IS NULL'},
+        outputs:['vulns[]'],
+        notes:''
+      }},
+      { id:'nvd4', icon:'🌐', type:'HTTP Request', name:'NVD API\n(CVE)', output:'CVSS data', detail:{
+        desc:'Consulta la API pública de NVD para obtener el CVSS v3.1 score y descripción oficial del CVE.',
+        params:{'URL':'https://services.nvd.nist.gov/rest/json/cves/2.0?cveId={{cve_id}}','Auth':'API Key NVD'},
+        outputs:['cvssScore','severity','description'],
+        notes:'Rate limit: 50 req/30s sin key, 2000/30s con key.'
+      }},
+      { id:'epss4', icon:'🌐', type:'HTTP Request', name:'EPSS API', output:'exploit prob', detail:{
+        desc:'Consulta EPSS (Exploit Prediction Scoring System) para obtener la probabilidad de explotación activa.',
+        params:{'URL':'https://api.first.org/data/v1/epss?cve={{cve_id}}'},
+        outputs:['epss_score','percentile'],
+        notes:'EPSS complementa CVSS con predicción probabilística de explotación.'
+      }},
+      { id:'fn4', icon:'⚙️', type:'Function', name:'Risk Score\nDinámico', output:'score final', detail:{
+        desc:'Calcula risk score: (CVSS * 0.4) + (EPSS * 0.3) + (criticidad_activo * 0.3). Asigna prioridad CRITICAL/HIGH/MEDIUM/LOW.',
+        params:{'Formula':'(cvss*0.4)+(epss*0.3)+(asset_w*0.3)','Salida':'risk_score 0–10 + priority'},
+        outputs:['risk_score','priority'],
+        notes:'Pesos ajustables a través del Flujo 7 de feedback.'
+      }},
+      { id:'mysql4b', icon:'🗄️', type:'MySQL', name:'UPDATE\nPriorización', output:'updated', detail:{
+        desc:'Actualiza la tabla vulnerabilities con cvss_score, epss_score, risk_score y fecha de enriquecimiento.',
+        params:{'UPDATE':'vulnerabilities SET cvss_score, epss_score, risk_score, enriched_at'},
+        outputs:['affectedRows'],
+        notes:''
+      }},
+    ]
+  },
+  f5: {
+    color: '#ec4899',
+    nodes: [
+      { id:'mysql5a', icon:'🗄️', type:'MySQL', name:'SELECT\nCríticos', output:'vulns críticas', detail:{
+        desc:'Obtiene vulnerabilidades con risk_score > umbral configurado (ej. 7.0) que no hayan sido notificadas.',
+        params:{'Query':'SELECT * FROM vulnerabilities WHERE risk_score > 7 AND notified = 0'},
+        outputs:['critical_vulns[]'],
+        notes:''
+      }},
+      { id:'if5', icon:'🔀', type:'IF / Switch', name:'¿Supera\nUmbral?', output:'true/false', detail:{
+        desc:'Evalúa si el risk_score supera el umbral configurable. Rama TRUE → notificación. Rama FALSE → solo log.',
+        params:{'Condición':'risk_score >= threshold','Umbral default':'7.0 (configurable)'},
+        outputs:['true branch','false branch'],
+        notes:''
+      }},
+      { id:'jira5', icon:'📋', type:'Jira', name:'Crear\nTicket Jira', output:'issue_key', detail:{
+        desc:'Crea un issue en Jira con severidad, descripción CVE, activo afectado y risk score. Asigna al responsable.',
+        params:{'Project':'VULN','IssueType':'Bug','Priority':'mapeo desde severity','Assignee':'seg_team'},
+        outputs:['issueKey','issueId'],
+        notes:'Requiere credenciales Jira en n8n Credentials.'
+      }},
+      { id:'slack5', icon:'💬', type:'Slack', name:'Alerta\nSlack', output:'message_ts', detail:{
+        desc:'Envía mensaje al canal #security-alerts con resumen: activo, CVE, risk score y link al ticket Jira.',
+        params:{'Canal':'#security-alerts','Formato':'Block Kit con botón "Ver Ticket"'},
+        outputs:['ts','channel'],
+        notes:''
+      }},
+      { id:'mysql5b', icon:'🗄️', type:'MySQL', name:'UPDATE\nnotified=1', output:'done', detail:{
+        desc:'Marca las vulnerabilidades como notificadas para evitar duplicados en ejecuciones futuras.',
+        params:{'UPDATE':'vulnerabilities SET notified=1, notified_at=NOW()'},
+        outputs:['affectedRows'],
+        notes:''
+      }},
+    ]
+  },
+  f6: {
+    color: '#10b981',
+    nodes: [
+      { id:'cron6', icon:'⏰', type:'Trigger', name:'Cron\nSemanal', output:'timestamp', detail:{
+        desc:'Dispara el reporte de auditoría semanalmente (ej. cada lunes a las 8 AM).',
+        params:{'Cron':'0 8 * * 1'},
+        outputs:['timestamp'],
+        notes:''
+      }},
+      { id:'mysql6', icon:'🗄️', type:'MySQL', name:'Queries\nAgregadas', output:'métricas raw', detail:{
+        desc:'Ejecuta múltiples queries: cobertura de activos, TTR promedio (resolved_at - created_at), tasa FP (false_positive=1).',
+        params:{'Queries':['cobertura','TTR','FP rate','top CVEs','distribución severidad']},
+        outputs:['metrics_object'],
+        notes:''
+      }},
+      { id:'fn6', icon:'⚙️', type:'Function', name:'Calcular\nMétricas', output:'report obj', detail:{
+        desc:'Formatea las métricas en un objeto estructurado listo para exportar. Calcula tendencias vs semana anterior.',
+        params:{'Campos':'cobertura%, TTR_horas, fp_rate%, top10_cves'},
+        outputs:['report{}'],
+        notes:''
+      }},
+      { id:'csv6', icon:'📊', type:'Spreadsheet', name:'Exportar\nCSV/Excel', output:'file', detail:{
+        desc:'Genera un archivo CSV o Excel con las métricas de la semana. Útil para seguimiento histórico.',
+        params:{'Formato':'CSV + XLSX','Nombre':'reporte_{{semana}}.csv'},
+        outputs:['binary_file'],
+        notes:''
+      }},
+      { id:'email6', icon:'📧', type:'Email', name:'Enviar\nReporte', output:'sent', detail:{
+        desc:'Envía el reporte adjunto por email al equipo de seguridad con resumen ejecutivo en el cuerpo.',
+        params:{'Para':'seg_team@utn.edu.ar','Asunto':'Reporte semanal vulnerabilidades','Adjunto':'CSV/XLSX'},
+        outputs:['messageId'],
+        notes:''
+      }},
+    ]
+  },
+  f7: {
+    color: '#3b82f6',
+    nodes: [
+      { id:'webhook7', icon:'🪝', type:'Webhook', name:'Webhook\nFeedback', output:'feedback payload', detail:{
+        desc:'Recibe feedback del analista via HTTP POST. Puede ser desde una UI interna, Jira o formulario.',
+        params:{'Method':'POST','Path':'/feedback','Body':'{ vuln_id, is_fp, notes, suggested_weight }'},
+        outputs:['body.feedback'],
+        notes:'La UI Java existente podría llamar a este endpoint para reportar FP.'
+      }},
+      { id:'mysql7a', icon:'🗄️', type:'MySQL', name:'INSERT\nFeedback', output:'stored', detail:{
+        desc:'Persiste el feedback recibido en la tabla feedback con vuln_id, analista, timestamp y clasificación.',
+        params:{'Tabla':'feedback (nueva)','Campos':'vuln_id, analyst, is_fp, notes, created_at'},
+        outputs:['insertId'],
+        notes:''
+      }},
+      { id:'fn7', icon:'⚙️', type:'Function', name:'Ajustar\nPesos', output:'new_weights', detail:{
+        desc:'Analiza historial de feedback. Si FP rate > 15% en una categoría, reduce su peso en la fórmula de risk score.',
+        params:{'Algoritmo':'Moving average de FP por tipo','Output':'{ w_cvss, w_epss, w_asset }'},
+        outputs:['weights{}'],
+        notes:'Lógica simple de ajuste. En trabajo futuro: ML adaptativo.'
+      }},
+      { id:'mysql7b', icon:'🗄️', type:'MySQL', name:'UPDATE\nReglas', output:'done', detail:{
+        desc:'Actualiza la tabla scoring_rules con los nuevos pesos calculados. El Flujo 4 los lee en su próxima ejecución.',
+        params:{'Tabla':'scoring_rules','Campos':'w_cvss, w_epss, w_asset, updated_at'},
+        outputs:['affectedRows'],
+        notes:''
+      }},
+    ]
+  }
+};
+
+// ─── Render flows ────────────────────────────────────────────────────────────
+function renderFlow(flowId) {
+  const flow = flows[flowId];
+  if (!flow) return;
+  const container = document.getElementById('flow' + flowId.replace('f',''));
+  if (!container) return;
+  container.innerHTML = '';
+
+  flow.nodes.forEach((node, i) => {
+    if (i > 0) {
+      const arrow = document.createElement('div');
+      arrow.className = 'arrow';
+      arrow.innerHTML = `<div class="arrow-line"></div>`;
+      container.appendChild(arrow);
+    }
+
+    const step = document.createElement('div');
+    step.className = 'flow-step';
+
+    const nodeEl = document.createElement('div');
+    nodeEl.className = 'node';
+    nodeEl.dataset.flow = flowId;
+    nodeEl.dataset.nid = node.id;
+    nodeEl.innerHTML = `
+      <div class="node-header">
+        <div class="node-icon" style="background:${flow.color}18;color:${flow.color}">${node.icon}</div>
+        <div>
+          <div class="node-type">${node.type}</div>
+          <div class="node-name">${node.name.replace('\n','<br>')}</div>
+        </div>
+      </div>
+      <div class="node-footer">
+        <div class="node-status" style="background:${flow.color}"></div>
+        <div class="node-output">${node.output}</div>
+      </div>
+    `;
+    nodeEl.addEventListener('click', () => showDetail(flowId, node));
+    step.appendChild(nodeEl);
+    container.appendChild(step);
+  });
+}
+
+function showDetail(flowId, node) {
+  const flow = flows[flowId];
+  const num = flowId.replace('f','');
+  const panel = document.getElementById('flow' + num + '-detail');
+
+  // deselect all
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+  document.querySelector(`[data-nid="${node.id}"]`).classList.add('selected');
+
+  const d = node.detail;
+  const paramsHTML = Object.entries(d.params).map(([k,v]) => `
+    <div class="detail-card">
+      <div class="detail-card-label">${k}</div>
+      <div class="detail-card-value">${Array.isArray(v) ? v.map(x=>`<span class="tag" style="background:${flow.color}18;color:${flow.color};border:1px solid ${flow.color}33">${x}</span>`).join('') : v}</div>
+    </div>
+  `).join('');
+
+  const outputsHTML = d.outputs.map(o => `<span class="tag" style="background:rgba(16,185,129,0.1);color:#10b981;border:1px solid rgba(16,185,129,0.2)">${o}</span>`).join('');
+
+  panel.innerHTML = `
+    <button class="close-btn" onclick="closeDetail('${num}')">✕</button>
+    <div class="detail-header">
+      <div class="detail-icon" style="background:${flow.color}18;color:${flow.color};font-size:22px">${node.icon}</div>
+      <div>
+        <div class="detail-title">${node.name.replace('\n',' ')}</div>
+        <div class="detail-type">${node.type}</div>
+      </div>
+    </div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6">${d.desc}</p>
+    <div class="detail-grid">${paramsHTML}</div>
+    <div style="margin-top:16px">
+      <div class="detail-card-label" style="margin-bottom:8px">Outputs</div>
+      ${outputsHTML}
+    </div>
+    ${d.notes ? `<div style="margin-top:16px;padding:12px;background:rgba(245,158,11,0.06);border:1px solid rgba(245,158,11,0.2);border-radius:8px;font-size:12px;color:#f59e0b"><span style="font-weight:700">Nota:</span> ${d.notes}</div>` : ''}
+  `;
+  panel.classList.add('visible');
+  panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closeDetail(num) {
+  const panel = document.getElementById('flow' + num + '-detail');
+  panel.classList.remove('visible');
+  document.querySelectorAll('.node').forEach(n => n.classList.remove('selected'));
+}
+
+// ─── Tab switching ────────────────────────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.canvas').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  const tabs = document.querySelectorAll('.tab');
+  const tabIds = ['overview','f1','f2','f3','f4','f5','f6','f7','metrics'];
+  tabs[tabIds.indexOf(id)].classList.add('active');
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+['f1','f2','f3','f4','f5','f6','f7'].forEach(id => renderFlow(id));
+</script>
+</body>
+</html>
